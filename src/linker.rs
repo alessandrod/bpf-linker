@@ -451,6 +451,12 @@ impl Linker {
         unsafe {
             llvm::DISanitizer::new(self.context, self.module).run(&self.options.export_symbols);
 
+            if let Some(path) = &self.options.dump_module {
+                let path = path.join("post-di-sanitizer.ll");
+                let path = CString::new(path.as_os_str().as_bytes()).unwrap();
+                self.write_ir(&path)?;
+            };
+
             llvm::optimize(
                 self.target_machine,
                 self.module,
