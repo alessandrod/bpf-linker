@@ -151,16 +151,17 @@ pub(crate) fn link_bitcode_buffer(
 pub(crate) fn link_ir_buffer(
     context: LLVMContextRef,
     module: LLVMModuleRef,
-    buffer: &[u8],
+    buffer: &CStr,
 ) -> bool {
     let mut linked = false;
     let buffer_name = c"ir_buffer";
+    let buffer = buffer.to_bytes();
     let mem_buffer = unsafe {
         LLVMCreateMemoryBufferWithMemoryRange(
             buffer.as_ptr().cast(),
             buffer.len(),
             buffer_name.as_ptr(),
-            0,
+            1,
         )
     };
 
