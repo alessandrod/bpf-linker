@@ -675,6 +675,13 @@ fn detect_input_type(data: &[u8]) -> Option<InputType> {
 }
 
 fn is_llvm_ir_header(data: &[u8]) -> bool {
+    // Check if the data is valid UTF-8.
+    // This strongly suggests that the data is an LLVM IR file
+
+    if str::from_utf8(data).is_err() {
+        return false;
+    }
+
     let trimmed = match data.iter().position(|&b| !b.is_ascii_whitespace()) {
         Some(position) => &data[position..],
         None => return false,
@@ -687,4 +694,5 @@ fn is_llvm_ir_header(data: &[u8]) -> bool {
         || trimmed.starts_with(b"source_filename")
         || trimmed.starts_with(b"target ")
         || trimmed.starts_with(b"define")
+        || trimmed.starts_with(b"!llvm")
 }
