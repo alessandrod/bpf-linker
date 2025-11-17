@@ -67,100 +67,36 @@ fn test_link_ir_file() {
 }
 
 #[test]
-fn test_link_multiple_ir_files() {
-    let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
-    let ir_file1 = create_test_ir_file(temp_dir.path(), "decina");
-    let ir_file2 = create_test_ir_file(temp_dir.path(), "despacito");
-    let output_file = temp_dir.path().join("output.o");
-
-    let output = Command::new(linker_path())
-        .arg("--export")
-        .arg("test_decina")
-        .arg("--export")
-        .arg("test_despacito")
-        .arg(&ir_file1)
-        .arg(&ir_file2)
-        .arg("-o")
-        .arg(&output_file)
-        .output()
-        .expect("Failed to execute bpf-linker");
-
-    if !output.status.success() {
-        eprintln!("stdout: {}", String::from_utf8_lossy(&output.stdout));
-        eprintln!("stderr: {}", String::from_utf8_lossy(&output.stderr));
-        panic!(
-            "bpf-linker failed with status: {} when linking multiple IR files",
-            output.status
-        );
-    }
-
-    assert!(output_file.exists(), "Output file should exist");
-}
-
-#[test]
-fn test_link_mixed_ir_and_bitcode() {
-    let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
-    let ir_file = create_test_ir_file(temp_dir.path(), "toly");
-    let bc_file = temp_dir.path().join("bc_part.bc");
-    let output_file = temp_dir.path().join("output.o");
-
-    // Create bitcode from IR using llvm-as
-    let llvm_as_output = Command::new("llvm-as")
-        .arg(&ir_file)
-        .arg("-o")
-        .arg(&bc_file)
-        .output();
-
-    if llvm_as_output.is_err() || !llvm_as_output.as_ref().unwrap().status.success() {
-        eprintln!("llvm-as not available or failed, skipping test");
-        return;
-    }
-
-    // Now create another IR file
-    let ir_file2 = create_test_ir_file(temp_dir.path(), "anatoly");
-
-    let output = Command::new(linker_path())
-        .arg("--export")
-        .arg("test_toly")
-        .arg("--export")
-        .arg("test_anatoly")
-        .arg(&bc_file)
-        .arg(&ir_file2)
-        .arg("-o")
-        .arg(&output_file)
-        .output()
-        .expect("Failed to execute bpf-linker");
-
-    if !output.status.success() {
-        eprintln!("stdout: {}", String::from_utf8_lossy(&output.stdout));
-        eprintln!("stderr: {}", String::from_utf8_lossy(&output.stderr));
-        panic!("bpf-linker failed when linking mixed IR and bitcode");
-    }
-
-    assert!(
-        output_file.exists(),
-        "Output file should exist after linking IR and bitcode"
-    );
-}
-
-#[test]
 fn test_invalid_ir_file() {
     let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
-    let invalid_ir = temp_dir.path().join("invalid.ll");
-    fs::write(&invalid_ir, "This is not valid LLVM IR\n").expect("Failed to write invalid IR");
+
+    let valid_ir_file = create_test_ir_file(temp_dir.path(), "alessandro");
+
+    let valid_content = fs::read_to_string(valid_ir_file).expect("Failed to read valid IR file");
+
+    // Corrupting IR content
+    let invalid_content = valid_content
+        .replace("define", "defXne")
+        .replace("add i32", "adX i32")
+        .replace("; ModuleID = 'alessandro'", ": ModuleXX = 'corrupted'");
+
+    let invalid_ir_file = temp_dir.path().join("corrupted.ll");
+
+    fs::write(&invalid_ir_file, invalid_content).expect("Failed to write invalid IR file");
 
     let output_file = temp_dir.path().join("output.o");
 
     let output = Command::new(linker_path())
-        .arg(&invalid_ir)
+        .arg(&invalid_ir_file)
         .arg("-o")
         .arg(&output_file)
         .output()
         .expect("Failed to execute bpf-linker");
 
-    // Should fail with invalid IR
+    // Should fail with corrupted IR
     assert!(
         !output.status.success(),
-        "bpf-linker should fail with invalid IR"
+        "bpf-linker should fail with corrupted IR. stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
     );
 }

@@ -284,17 +284,18 @@ impl Linker {
 
     fn link_modules(&mut self) -> Result<(), LinkerError> {
         // buffer used to perform file type detection
-        let mut buf = [0u8; 8];
+        let mut buf = [0u8; 128];
         for path in self.options.inputs.clone() {
             let mut file = File::open(&path).map_err(|e| LinkerError::IoError(path.clone(), e))?;
 
             // determine whether the input is bitcode, ELF with embedded bitcode, an archive file
             // or an invalid file
-            file.read_exact(&mut buf)
+            let bytes_read = file
+                .read(&mut buf)
                 .map_err(|e| LinkerError::IoError(path.clone(), e))?;
             file.rewind()
                 .map_err(|e| LinkerError::IoError(path.clone(), e))?;
-            let in_type = detect_input_type(&buf)
+            let in_type = detect_input_type(&buf[..bytes_read])
                 .ok_or_else(|| LinkerError::InvalidInputType(path.clone()))?;
 
             match in_type {
@@ -674,19 +675,16 @@ fn detect_input_type(data: &[u8]) -> Option<InputType> {
 }
 
 fn is_llvm_ir_header(data: &[u8]) -> bool {
-
-    // LLVM IR typically starts with so checking for this characters is a good enough heuristic:
-    // - ';' (e.g "; ModuleID = 'foo')
-    // - 'target ...' (e.g "target triple" or "target datalayout")
-    // - 'source_filename' (e.g "source_filename = "foo.ll")
-
     let trimmed = match data.iter().position(|&b| !b.is_ascii_whitespace()) {
         Some(position) => &data[position..],
         None => return false,
     };
 
-    trimmed.starts_with(b";")
-    || trimmed.starts_with(b"target ")
-    || trimmed.starts_with(b"source_filename")
-
+    // Checking for the presence of key keywords in the header
+    trimmed.starts_with(b"; ModuleID")
+        || trimmed.starts_with(b"target triple")
+        || trimmed.starts_with(b"target datalayout")
+        || trimmed.starts_with(b"source_filename")
+        || trimmed.starts_with(b"target ")
+        || trimmed.starts_with(b"define")
 }

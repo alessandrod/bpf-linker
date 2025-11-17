@@ -41,6 +41,7 @@ regex = { version = "1.11.1", default-features = false }
 rustc-build-sysroot = { workspace = true }
 which = { version = "8.0.0", default-features = false, features = ["real-sys", "regex"] }
 tempfile = "3.13"
+
 [lints]
 workspace = true
 
