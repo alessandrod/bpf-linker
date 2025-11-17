@@ -100,3 +100,30 @@ fn test_invalid_ir_file() {
         String::from_utf8_lossy(&output.stderr)
     );
 }
+
+#[test]
+fn test_non_utf8_ir_file() {
+    let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
+
+    let non_utf8_ir_file = temp_dir.path().join("non_utf8.ll");
+    let non_utf8_content = b"; ModuleID = 'test\xFF'\ntarget triple = \"bpf\"";
+
+    fs::write(&non_utf8_ir_file, non_utf8_content).expect("Failed to write non-UTF8 IR file");
+
+    let output_file = temp_dir.path().join("output.o");
+
+    let output = Command::new(linker_path())
+        .arg(&non_utf8_ir_file)
+        .arg("-o")
+        .arg(&output_file)
+        .output()
+        .expect("Failed to execute bpf-linker");
+
+    eprintln!("stdout: {}", String::from_utf8_lossy(&output.stdout));
+
+    assert!(
+        !output.status.success(),
+        "bpf-linker should fail with non-UTF8 IR file. stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
