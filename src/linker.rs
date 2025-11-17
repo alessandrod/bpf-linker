@@ -367,7 +367,7 @@ impl Linker {
             InputType::Ir => {
                 data.push(0);
                 let data = CStr::from_bytes_with_nul(&data).unwrap();
-                if !llvm::link_ir_buffer(self.context, self.module, &data) {
+                if !llvm::link_ir_buffer(self.context, self.module, data) {
                     return Err(LinkerError::LinkModuleError(path.to_owned()));
                 }
             }
@@ -665,7 +665,7 @@ fn detect_input_type(data: &[u8]) -> Option<InputType> {
         _ => {
             if &data[..8] == b"!<arch>\x0A" {
                 Some(InputType::Archive)
-            } else if is_llvm_ir_header(&data) {
+            } else if is_llvm_ir_header(data) {
                 Some(InputType::Ir)
             } else {
                 None
